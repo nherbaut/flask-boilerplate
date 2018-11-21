@@ -2,8 +2,9 @@
 # Imports
 #----------------------------------------------------------------------------#
 
-from flask import Flask, render_template, request
-# from flask.ext.sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, redirect, url_for, abort, Response
+from flask_sqlalchemy import SQLAlchemy
+from models import *
 import logging
 from logging import Formatter, FileHandler
 from forms import *
@@ -15,7 +16,7 @@ import os
 
 app = Flask(__name__)
 app.config.from_object('config')
-#db = SQLAlchemy(app)
+db = SQLAlchemy(app)
 
 # Automatically tear down SQLAlchemy.
 '''
@@ -25,7 +26,7 @@ def shutdown_session(exception=None):
 '''
 
 # Login required decorator.
-'''
+
 def login_required(test):
     @wraps(test)
     def wrap(*args, **kwargs):
@@ -35,7 +36,7 @@ def login_required(test):
             flash('You need to login first.')
             return redirect(url_for('login'))
     return wrap
-'''
+
 #----------------------------------------------------------------------------#
 # Controllers.
 #----------------------------------------------------------------------------#
@@ -51,24 +52,86 @@ def about():
     return render_template('pages/placeholder.about.html')
 
 
-@app.route('/login')
+@app.route('/login',methods=['GET'])
 def login():
     form = LoginForm(request.form)
     return render_template('forms/login.html', form=form)
 
+@app.route('/login',methods=['POST'])
+def login_POST():
+    form = LoginForm(request.form)
+    
+    user=User.query.filter_by(name=form.name.data).first()
+    if(user is None or (user.password!=form.password.data)):
+        abort(403)  
+        abort(Response('You are not allowed to access this resource'))
+    else:
+        return redirect(url_for('rdvs',userid=str(user.id)))
+    
+        
+    
+    
+@app.route('/forgot')
+def forgot():
+    form = ForgotForm(request.form)
+    return render_template('forms/forgot.html', form=form)
+# Error handlers.
 
-@app.route('/register')
+
+@app.route('/register',methods=['GET'])
 def register():
     form = RegisterForm(request.form)
     return render_template('forms/register.html', form=form)
 
 
-@app.route('/forgot')
-def forgot():
-    form = ForgotForm(request.form)
-    return render_template('forms/forgot.html', form=form)
+@app.route('/register',methods=['POST'])
+def register_POST():
+    name = request.form["name"]
+    email = request.form["email"]
+    password = request.form["password"]
+    confirm = request.form["confirm"]
+    if( password != confirm ):
+        abort(403)
+        return "password and confirmation don't match"
+    else:
+        try:
+            user = User(name=name, email=email,password=password)
+            db.session.add(user)
+            db.session.commit()
+            return redirect(url_for('rdvs',userid=str(user.id)))
+        except:
+            
+            abort(Response('cannot create user',409))
 
-# Error handlers.
+
+@app.route('/rdvs',methods=["GET"])
+def rdvs():
+    
+    userid = request.args.get('userid')
+    user=User.query.filter_by(id=userid).first()
+    print(user.name)
+    return render_template('layouts/rdv.html', user=user,form=RDVForm(request.form))
+
+@app.route('/rdvs',methods=["POST"])
+def rdvs_post():
+    form = RDVForm(request.form)
+
+    title = form.name.data
+    time  = form.time.data
+    nature = form.nature.data
+    user_id = int(form.user.data)
+
+    rdv = RDV(title=title,time=time,nature=nature,user_id=user_id)
+
+    db.session.add(rdv)
+    db.session.commit()
+
+    user=User.query.filter_by(id=user_id).first()
+    
+    
+    return render_template('layouts/rdv.html', user=user,form=form)
+
+
 
 
 @app.errorhandler(500)

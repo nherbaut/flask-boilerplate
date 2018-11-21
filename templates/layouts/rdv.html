@@ -1,0 +1,29 @@
+<html>
+    <body>
+
+
+User {{ user.name }} is connected
+<br>
+she has {{ user.rdvs |length }} rdvs 
+<ul>
+{% for rdv in user.rdvs %}
+    <li>{{ rdv.title}}</li>
+{% endfor %}
+</ul>
+
+
+<form method="post">
+{{ form.name( placeholder = "nom du RDV", required = true, autofocus = true) }}
+{{ form.nature( placeholder = "nature du RDV", required = true) }}
+{{ form.time( placeholder = "heure du rdv", required = true) }}
+{{ form.user( value=user.id, required = true) }}
+
+<input type="submit" value="Ajouter"  />
+</form>
+
+
+<a href="/" >Logout </a>
+
+
+    </body>
+</html>
